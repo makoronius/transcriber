@@ -125,7 +125,7 @@ nul
 yt-dlp.exe
 yt-dlp
 ffmpeg.exe
-ffmpeg
+/ffmpeg
 
 # Archive folder - old/deprecated scripts kept for reference
 # Note: Existing files are committed, but new additions will be ignored

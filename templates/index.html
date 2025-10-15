@@ -20,8 +20,8 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 
-    <!-- ffmpeg.wasm for client-side transcoding -->
-    <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.12.6/dist/umd/ffmpeg.js"></script>
+    <!-- ffmpeg.wasm for client-side transcoding (hosted locally to avoid CORS) -->
+    <script src="{{ url_for('static', filename='vendor/ffmpeg/ffmpeg.js') }}"></script>
 </head>
 <body>
     <div class="animated-bg"></div>

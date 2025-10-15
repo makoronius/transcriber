@@ -4147,7 +4147,7 @@ async function transcodeClientSide(videoPath, fileName) {
             });
 
             await ffmpegInstance.load({
-                coreURL: 'https://unpkg.com/@ffmpeg/core@0.12.4/dist/umd/ffmpeg-core.js',
+                coreURL: '/static/vendor/ffmpeg/ffmpeg-core.js',
             });
         }
 
