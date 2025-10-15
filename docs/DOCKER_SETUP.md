@@ -177,8 +177,8 @@ docker stop whisper-transcriber && docker rm whisper-transcriber
 # Open a shell
 docker compose exec whisper-web bash
 
-# Run a Python script
-docker compose exec whisper-web python rename_srt_to_sr.py
+# Run the subtitle cleanup script
+docker compose exec whisper-web python srt_cleanup.py path/to/subtitle.srt
 
 # Check GPU availability
 docker compose exec whisper-web python -c "import torch; print(f'CUDA available: {torch.cuda.is_available()}')"
