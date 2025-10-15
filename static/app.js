@@ -101,6 +101,12 @@ const ModalManager = {
     close(modalElement) {
         if (!modalElement) return;
 
+        // Special handling for confirm modal - resolve promise with false
+        if (modalElement.id === 'confirmModal' && confirmModalResolve) {
+            confirmModalResolve(false);
+            confirmModalResolve = null;
+        }
+
         // Remove from stack
         const index = this.activeModals.indexOf(modalElement);
         if (index > -1) {
