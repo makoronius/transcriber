@@ -90,7 +90,7 @@ Write-Host ""
 if ($Mode -eq 'gpu') {
     Write-ColorOutput Yellow "For best GPU performance, consider running from WSL 2:"
     Write-Host "  wsl"
-    Write-Host "  cd /mnt/d/Code/whisper  # Adjust path"
+    Write-Host "  cd /mnt/c/path/to/transcriber  # Adjust to your project path"
     Write-Host "  ./docker-run.sh gpu `"URL`""
     Write-Host ""
 }
