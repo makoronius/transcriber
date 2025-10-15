@@ -1074,6 +1074,9 @@ async function handleSubmit(e) {
             jobs.unshift(newJob);
             renderJobs();
 
+            // Switch to Jobs tab to show the new job
+            switchMainTab('jobs');
+
             // Also fetch from server to get complete data (including video title)
             console.log('⏱️ Scheduling full job refresh in 500ms...');
             setTimeout(() => {
@@ -2388,6 +2391,13 @@ async function transcodeToMP4(videoPath) {
 
         if (response.ok) {
             showNotification(`✅ Transcoding job started! Job ID: ${data.job_id}`, 'success');
+
+            // Switch to Jobs tab to show the new job
+            switchMainTab('jobs');
+
+            // Refresh jobs list to show the new transcode job
+            setTimeout(() => loadJobs(), 500);
+
             // Refresh files after a delay
             setTimeout(() => loadFiles(currentFolderPath), 2000);
         } else {
@@ -2426,6 +2436,13 @@ async function generateSubtitles(videoPath) {
 
         if (response.ok) {
             showNotification(`Subtitles generation started! Job ID: ${data.job_id}`, 'success');
+
+            // Switch to Jobs tab to show the new job
+            switchMainTab('jobs');
+
+            // Refresh jobs list to show the new transcription job
+            setTimeout(() => loadJobs(), 500);
+
             // Refresh files after a delay - stay in current folder
             setTimeout(() => loadFiles(currentFolderPath), 2000);
         } else {
