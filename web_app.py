@@ -454,7 +454,9 @@ def submit_job():
         'cookie_file': cookie_file,
         'audio_track': data.get('audio_track', '0'),  # Audio track index
         'source_type': source_type,
-        'auto_cleanup': data.get('auto_cleanup', 'false').lower() == 'true'
+        'auto_cleanup': data.get('auto_cleanup', 'false').lower() == 'true',
+        'override_video': data.get('override_video', 'false').lower() == 'true',
+        'override_srt': data.get('override_srt', 'false').lower() == 'true'
     }
 
     # Create job ID
@@ -2056,8 +2058,22 @@ def list_files():
         for item in sorted(current_dir.iterdir(), key=lambda x: x.name.lower()):
             if item.is_file() and item.suffix.lower() in subtitle_extensions:
                 # Skip this SRT if there's a video with the same base name
-                if item.stem in video_base_names:
+                # Also check for language-coded subtitles (e.g., video.sr.srt)
+                subtitle_stem = item.stem
+
+                # Check exact match first
+                if subtitle_stem in video_base_names:
                     continue
+
+                # Check if this is a language-coded subtitle (e.g., video.en, video.sr)
+                # by removing the last part after the dot
+                parts = subtitle_stem.rsplit('.', 1)
+                if len(parts) == 2:
+                    # Check if base name (without language code) matches a video
+                    base_without_lang = parts[0]
+                    if base_without_lang in video_base_names:
+                        # This is a language-coded subtitle for an existing video, skip it
+                        continue
 
                 rel_path = item.relative_to(download_dir)
                 path_str = str(rel_path).replace('\\', '/')
