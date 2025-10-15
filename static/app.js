@@ -101,12 +101,6 @@ const ModalManager = {
     close(modalElement) {
         if (!modalElement) return;
 
-        // Special handling for confirm modal - resolve promise with false
-        if (modalElement.id === 'confirmModal' && confirmModalResolve) {
-            confirmModalResolve(false);
-            confirmModalResolve = null;
-        }
-
         // Remove from stack
         const index = this.activeModals.indexOf(modalElement);
         if (index > -1) {
@@ -141,7 +135,13 @@ const ModalManager = {
         if (e.key === 'Escape') {
             e.preventDefault();
             e.stopPropagation();
-            this.close(modalElement);
+
+            // Special handling for confirm modal
+            if (modalElement.id === 'confirmModal' && typeof closeConfirmModal === 'function') {
+                closeConfirmModal(false);
+            } else {
+                this.close(modalElement);
+            }
             return;
         }
 
@@ -172,7 +172,12 @@ const ModalManager = {
     handleBackdropClick(modalElement, e) {
         // Close modal if clicking on backdrop (not modal content)
         if (e.target === modalElement) {
-            this.close(modalElement);
+            // Special handling for confirm modal
+            if (modalElement.id === 'confirmModal' && typeof closeConfirmModal === 'function') {
+                closeConfirmModal(false);
+            } else {
+                this.close(modalElement);
+            }
         }
     },
 
@@ -3631,12 +3636,14 @@ function showConfirmModal(message, title = '⚠️ Confirm Action', confirmButto
 
 // Close confirmation modal
 function closeConfirmModal(confirmed) {
-    ModalManager.close(document.getElementById("confirmModal"));
-
+    // Resolve promise FIRST to ensure callbacks run before modal closes
     if (confirmModalResolve) {
         confirmModalResolve(confirmed);
         confirmModalResolve = null;
     }
+
+    // Then close the modal UI
+    ModalManager.close(document.getElementById("confirmModal"));
 }
 
 // Delete subtitle with language selection (for videos with multiple subtitles)
