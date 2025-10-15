@@ -1,0 +1,846 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Whisper AI Transcriber</title>
+
+    <!-- Favicons -->
+    <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}">
+    <link rel="icon" type="image/png" sizes="512x512" href="{{ url_for('static', filename='icon.svg') }}">
+    <link rel="apple-touch-icon" href="{{ url_for('static', filename='icon.svg') }}">
+
+    <!-- Meta tags -->
+    <meta name="description" content="AI-powered transcription tool using Whisper - transcribe YouTube videos and audio files with subtitle generation">
+    <meta name="theme-color" content="#667eea">
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <!-- ffmpeg.wasm for client-side transcoding -->
+    <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.12.6/dist/umd/ffmpeg.js"></script>
+</head>
+<body>
+    <div class="animated-bg"></div>
+
+    <div class="container">
+        <header>
+            <!-- Theme Toggle -->
+            <div class="theme-toggle">
+                <div>
+                    <button class="theme-btn" data-theme="light" title="Light Mode">
+                        ☀️
+                    </button>
+                    <button class="theme-btn active" data-theme="dark" title="Dark Mode">
+                        🌙
+                    </button>
+                    <button class="theme-btn" data-theme="auto" title="System Default">
+                        💻
+                    </button>
+                </div>
+                <div class="animation-toggle">
+                    <label>
+                        <input type="checkbox" id="noAnimationToggle">
+                        <span>No animation</span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="logo-section">
+                <div class="logo-icon">
+                    <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                        <defs>
+                            <linearGradient id="iconGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" style="stop-color:#667eea;stop-opacity:1" />
+                                <stop offset="100%" style="stop-color:#764ba2;stop-opacity:1" />
+                            </linearGradient>
+                        </defs>
+                        <circle cx="50" cy="50" r="45" fill="url(#iconGradient)" opacity="0.2"/>
+                        <path d="M 35 30 L 35 70 L 65 50 Z" fill="url(#iconGradient)"/>
+                        <circle cx="35" cy="30" r="3" fill="url(#iconGradient)"/>
+                        <circle cx="35" cy="50" r="3" fill="url(#iconGradient)"/>
+                        <circle cx="35" cy="70" r="3" fill="url(#iconGradient)"/>
+                    </svg>
+                </div>
+                <div class="title-section">
+                    <h1 class="gradient-text">Whisper AI Transcriber</h1>
+                    <p class="subtitle">⚡ Lightning-fast GPU-accelerated transcription powered by OpenAI Whisper</p>
+                </div>
+            </div>
+        </header>
+
+        <div class="main-content">
+            <!-- Main Navigation Tabs -->
+            <div class="main-tabs">
+                <button type="button" class="main-tab-button active" onclick="switchMainTab('youtube')">📺 YouTube & Options</button>
+                <button type="button" class="main-tab-button" onclick="switchMainTab('jobs')">📋 Jobs</button>
+                <button type="button" class="main-tab-button" onclick="switchMainTab('files')">📁 File Browser</button>
+                <button type="button" class="main-tab-button" onclick="switchMainTab('system')">💻 System Info</button>
+            </div>
+
+            <!-- Tab: YouTube & Options -->
+            <div id="youtube-tab" class="main-tab-content active">
+            <!-- Job Submission Form -->
+            <form id="jobForm">
+                <!-- YouTube Transcription Section -->
+                <section class="card">
+                    <h2>🎬 YouTube Transcription</h2>
+
+                    <!-- YouTube URL Input -->
+                    <div class="form-group">
+                        <label for="url">YouTube URL *</label>
+                        <input
+                            type="text"
+                            id="url"
+                            name="url"
+                            placeholder="https://youtube.com/playlist?list=... or https://youtu.be/..."
+                            required
+                        >
+                        <small>Paste a playlist URL or single video URL. For local files, use "Generate Subtitles" button in File Browser below.</small>
+                    </div>
+
+                    <!-- Submit Button -->
+                    <button type="submit" class="btn btn-primary">
+                        <span>🚀 Start Transcription</span>
+                    </button>
+                </section>
+
+                <!-- YouTube Options Section (Collapsible) -->
+                <section class="card">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                        <h2 style="margin: 0;">🎬 YouTube Options</h2>
+                        <button type="button" id="toggleYouTube" class="btn btn-secondary" onclick="toggleYouTubeOptions()" style="padding: 10px 20px;">
+                            <span id="toggleYouTubeIcon">▼</span> <span id="toggleYouTubeText">Show</span>
+                        </button>
+                    </div>
+
+                    <div id="youtubeOptions" style="display: none;">
+                        <!-- Cookie File -->
+                        <div class="form-group">
+                            <label for="cookie_file">Cookie File (Optional)</label>
+                            <div class="cookie-status" id="cookieStatus">
+                                <span class="cookie-info">Checking cookie file...</span>
+                            </div>
+                            <div class="file-upload" style="margin-top: 10px;">
+                                <input
+                                    type="file"
+                                    id="cookie_file"
+                                    name="cookie_file"
+                                    accept=".txt"
+                                >
+                                <label for="cookie_file" class="file-label">
+                                    <span id="fileName">Upload cookies.txt</span>
+                                    <span class="file-button">Browse</span>
+                                </label>
+                            </div>
+                            <small>Upload once - will be saved permanently. Required for age-restricted or private videos.</small>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Transcription Options Section (Separate Card) -->
+                <section class="card">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                        <h2 style="margin: 0;">⚙️ Transcription Options</h2>
+                        <button type="button" id="toggleParams" class="btn btn-secondary" onclick="toggleTranscriptionParams()" style="padding: 10px 20px;">
+                            <span id="toggleParamsIcon">▼</span> <span id="toggleParamsText">Show</span>
+                        </button>
+                    </div>
+
+                    <div id="transcriptionParams" style="display: none;">
+                        <!-- Auto-Cleanup - Simple checkbox -->
+                        <div class="form-group">
+                            <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                                <input type="checkbox" id="auto_cleanup" name="auto_cleanup" value="true" style="width: 18px; height: 18px; cursor: pointer;">
+                                <span style="color: var(--text-primary); font-weight: 500;">✨ Automatically clean subtitles after transcription</span>
+                            </label>
+                            <small style="display: block; margin-top: 8px; margin-left: 28px;">Remove hallucinated text and shorten repeated patterns using AI-powered cleanup</small>
+                        </div>
+
+                        <!-- Override Options -->
+                        <div class="form-group">
+                            <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                                <input type="checkbox" id="override_video" name="override_video" value="true" style="width: 18px; height: 18px; cursor: pointer;">
+                                <span style="color: var(--text-primary); font-weight: 500;">🔄 Override video (force re-download)</span>
+                            </label>
+                            <small style="display: block; margin-top: 8px; margin-left: 28px;">Re-download video even if it already exists</small>
+                        </div>
+
+                        <div class="form-group">
+                            <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                                <input type="checkbox" id="override_srt" name="override_srt" value="true" style="width: 18px; height: 18px; cursor: pointer;">
+                                <span style="color: var(--text-primary); font-weight: 500;">🔄 Override subtitles (force re-transcription)</span>
+                            </label>
+                            <small style="display: block; margin-top: 8px; margin-left: 28px;">Re-generate subtitles even if they already exist</small>
+                        </div>
+                        <div class="form-row">
+                        <div class="form-group">
+                            <label for="model">Model</label>
+                            <select id="model" name="model">
+                                <!-- Populated by JavaScript -->
+                            </select>
+                            <small>Larger = better quality, slower</small>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="device">Device</label>
+                            <select id="device" name="device">
+                                <!-- Populated by JavaScript -->
+                            </select>
+                            <small>GPU requires CUDA</small>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="language">Language</label>
+                            <select id="language" name="language">
+                                <!-- Populated by JavaScript -->
+                            </select>
+                            <small>Target language for transcription</small>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="beam_size">Beam Size</label>
+                            <select id="beam_size" name="beam_size">
+                                <!-- Populated by JavaScript -->
+                            </select>
+                            <small>Higher = more accurate</small>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="workers">Workers</label>
+                            <select id="workers" name="workers">
+                                <!-- Populated by JavaScript -->
+                            </select>
+                            <small>Parallel transcription</small>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="vad_filter">VAD Filter</label>
+                            <select id="vad_filter" name="vad_filter">
+                                <!-- Populated by JavaScript -->
+                            </select>
+                            <small>Voice activity detection - improves accuracy by removing non-speech</small>
+                        </div>
+                    </div>
+
+                    <!-- Extended VAD Parameters (hidden by default) -->
+                    <div id="vad_extended_params" style="display: none;">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="vad_threshold">VAD Threshold</label>
+                                <input
+                                    type="number"
+                                    id="vad_threshold"
+                                    name="vad_threshold"
+                                    value="0.5"
+                                    min="0"
+                                    max="1"
+                                    step="0.05"
+                                >
+                                <small>Voice probability threshold (0-1, default: 0.5)</small>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="vad_min_speech_duration">Min Speech Duration (ms)</label>
+                                <input
+                                    type="number"
+                                    id="vad_min_speech_duration"
+                                    name="vad_min_speech_duration"
+                                    value="250"
+                                    min="0"
+                                    step="50"
+                                >
+                                <small>Minimum speech segment length (default: 250ms)</small>
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="vad_min_silence_duration">Min Silence Duration (ms)</label>
+                                <input
+                                    type="number"
+                                    id="vad_min_silence_duration"
+                                    name="vad_min_silence_duration"
+                                    value="2000"
+                                    min="0"
+                                    step="100"
+                                >
+                                <small>Minimum silence to split segments (default: 2000ms)</small>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="vad_speech_pad">Speech Padding (ms)</label>
+                                <input
+                                    type="number"
+                                    id="vad_speech_pad"
+                                    name="vad_speech_pad"
+                                    value="400"
+                                    min="0"
+                                    step="50"
+                                >
+                                <small>Padding around speech segments (default: 400ms)</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="compute_type">Compute Type</label>
+                            <select id="compute_type" name="compute_type">
+                                <!-- Populated by JavaScript -->
+                            </select>
+                            <small>Precision mode</small>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="temperature">Temperature</label>
+                            <select id="temperature" name="temperature">
+                                <!-- Populated by JavaScript -->
+                            </select>
+                            <small>Sampling randomness</small>
+                        </div>
+                    </div>
+
+                    </div> <!-- Close transcriptionParams -->
+                </section>
+            </form>
+            </div> <!-- End YouTube Tab -->
+
+            <!-- Tab: Jobs -->
+            <div id="jobs-tab" class="main-tab-content">
+            <!-- Active Jobs -->
+            <section class="card">
+                <h2>Active Jobs</h2>
+                <div id="activeJobs" class="jobs-list">
+                    <p class="no-data">No active jobs</p>
+                </div>
+            </section>
+
+            <!-- Job History -->
+            <section class="card">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <h2 style="margin: 0;">Job History</h2>
+                    <button id="clearCompletedJobs" class="btn btn-secondary" style="font-size: 0.9rem; padding: 8px 16px;" onclick="clearCompletedFailedJobs()">
+                        🗑️ Clear Completed/Failed
+                    </button>
+                </div>
+                <div class="tabs">
+                    <button class="tab-button active" data-tab="all">All</button>
+                    <button class="tab-button" data-tab="completed">Completed</button>
+                    <button class="tab-button" data-tab="failed">Failed</button>
+                </div>
+                <div id="jobHistory" class="jobs-list">
+                    <p class="no-data">No jobs yet</p>
+                </div>
+            </section>
+            </div> <!-- End Jobs Tab -->
+
+            <!-- Tab: File Browser -->
+            <div id="files-tab" class="main-tab-content">
+            <!-- File Browser -->
+            <section class="card">
+                <h2>Downloaded Files</h2>
+                <div class="file-browser-toolbar">
+                    <button id="refreshFiles" class="btn btn-secondary" onclick="loadFiles()">🔄 Refresh</button>
+                    <button id="createFolder" class="btn btn-secondary" onclick="openCreateFolderModal()">📁 Create Folder</button>
+                    <button id="openUploadModal" class="btn btn-secondary" onclick="openUploadModal()">📤 Upload Files</button>
+                    <button id="openFilterEditor" class="btn btn-secondary" onclick="openFilterEditor()">⚙️ Filter Editor</button>
+                    <div class="file-filter">
+                        <input
+                            type="text"
+                            id="fileSearch"
+                            placeholder="Search files..."
+                        >
+                        <select id="fileTypeFilter">
+                            <option value="all">All Files</option>
+                            <option value=".mp4">Videos (.mp4)</option>
+                            <option value=".srt">Subtitles (.srt)</option>
+                        </select>
+                    </div>
+                </div>
+                <div id="fileBrowser" class="file-list">
+                    <p class="no-data">No files yet</p>
+                </div>
+            </section>
+            </div> <!-- End Files Tab -->
+
+            <!-- Tab: System Info -->
+            <div id="system-tab" class="main-tab-content">
+                <section class="card">
+                    <h2>💻 System Information</h2>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                        <div id="systemTimestamp" style="color: var(--text-secondary); font-size: 0.9rem;"></div>
+                        <button onclick="loadSystemInfo()" class="btn btn-secondary">🔄 Refresh</button>
+                    </div>
+
+                    <!-- System Health Section -->
+                    <div class="system-section">
+                        <h3>⚡ System Health</h3>
+                        <div class="system-grid">
+                            <div class="system-metric">
+                                <div class="metric-label">CPU Usage</div>
+                                <div class="metric-value" id="cpuUsage">--</div>
+                                <div class="metric-bar">
+                                    <div class="metric-bar-fill" id="cpuBar" style="width: 0%"></div>
+                                </div>
+                            </div>
+                            <div class="system-metric">
+                                <div class="metric-label">Memory Usage</div>
+                                <div class="metric-value" id="memoryUsage">--</div>
+                                <div class="metric-bar">
+                                    <div class="metric-bar-fill" id="memoryBar" style="width: 0%"></div>
+                                </div>
+                            </div>
+                            <div class="system-metric">
+                                <div class="metric-label">Disk Usage</div>
+                                <div class="metric-value" id="diskUsage">--</div>
+                                <div class="metric-bar">
+                                    <div class="metric-bar-fill" id="diskBar" style="width: 0%"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Database Health Section -->
+                    <div class="system-section">
+                        <h3>🗄️ Database Health</h3>
+                        <div class="info-grid">
+                            <div class="info-item">
+                                <span class="info-label">Status:</span>
+                                <span id="dbStatus">--</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Size:</span>
+                                <span id="dbSize">--</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Jobs Count:</span>
+                                <span id="dbJobCount">--</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Directory Sizes Section -->
+                    <div class="system-section">
+                        <h3>📂 Directory Sizes</h3>
+                        <div class="info-grid">
+                            <div class="info-item">
+                                <span class="info-label">Downloads:</span>
+                                <span id="dirDownloads">--</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Uploads:</span>
+                                <span id="dirUploads">--</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Logs:</span>
+                                <span id="dirLogs">--</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Backups:</span>
+                                <span id="dirBackups">--</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Process Information Section -->
+                    <div class="system-section">
+                        <h3>⚙️ Process Information</h3>
+                        <div class="info-grid">
+                            <div class="info-item">
+                                <span class="info-label">PID:</span>
+                                <span id="processPid">--</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Status:</span>
+                                <span id="processStatus">--</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Memory:</span>
+                                <span id="processMemory">--</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Threads:</span>
+                                <span id="processThreads">--</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Uptime:</span>
+                                <span id="processUptime">--</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- GPU Information Section -->
+                    <div class="system-section">
+                        <h3>🎮 GPU / CUDA Information</h3>
+                        <div id="gpuInfo"></div>
+                    </div>
+
+                    <!-- System Information Section -->
+                    <div class="system-section">
+                        <h3>🖥️ System Information</h3>
+                        <div class="info-grid">
+                            <div class="info-item">
+                                <span class="info-label">Platform:</span>
+                                <span id="sysPlatform">--</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Architecture:</span>
+                                <span id="sysArch">--</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Processor:</span>
+                                <span id="sysProcessor">--</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Python Version:</span>
+                                <span id="sysPython">--</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">CPU Cores (Physical):</span>
+                                <span id="sysCpuPhysical">--</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">CPU Cores (Logical):</span>
+                                <span id="sysCpuLogical">--</span>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </div> <!-- End System Tab -->
+
+        </div> <!-- End main-content -->
+
+        <footer>
+            <p>YouTube Playlist Transcriber • Background jobs continue even if you close this page</p>
+        </footer>
+    </div>
+
+    <!-- Job Details Modal -->
+    <div id="jobModal" class="modal">
+        <div class="modal-content">
+            <span class="modal-close" onclick="closeModal()">&times;</span>
+            <h2>Job Details</h2>
+            <div id="jobDetails"></div>
+        </div>
+    </div>
+
+    <!-- Video Player Modal -->
+    <div id="videoModal" class="modal">
+        <div class="modal-content modal-video">
+            <span class="modal-close" onclick="closeVideoPlayer()">&times;</span>
+            <h2 id="videoTitle">Video Player</h2>
+            <div class="video-container">
+                <video id="videoPlayer" controls>
+                    <track id="subtitleTrack" kind="subtitles" srclang="sr" label="Serbian" default>
+                    Your browser does not support the video tag.
+                </video>
+            </div>
+            <div class="video-controls">
+                <div class="control-group">
+                    <label>Speed:</label>
+                    <button onclick="changeSpeed(0.5)" class="speed-btn">0.5x</button>
+                    <button onclick="changeSpeed(0.75)" class="speed-btn">0.75x</button>
+                    <button onclick="changeSpeed(1)" class="speed-btn active">1x</button>
+                    <button onclick="changeSpeed(1.25)" class="speed-btn">1.25x</button>
+                    <button onclick="changeSpeed(1.5)" class="speed-btn">1.5x</button>
+                    <button onclick="changeSpeed(2)" class="speed-btn">2x</button>
+                </div>
+                <div class="control-group">
+                    <label>Subtitle Size:</label>
+                    <button onclick="changeSubtitleSize('small')" class="subtitle-size-btn" data-size="small">Small</button>
+                    <button onclick="changeSubtitleSize('medium')" class="subtitle-size-btn" data-size="medium">Medium</button>
+                    <button onclick="changeSubtitleSize('large')" class="subtitle-size-btn active" data-size="large">Large</button>
+                    <button onclick="changeSubtitleSize('xlarge')" class="subtitle-size-btn" data-size="xlarge">XL</button>
+                    <button onclick="changeSubtitleSize('xxlarge')" class="subtitle-size-btn" data-size="xxlarge">XXL</button>
+                    <button onclick="changeSubtitleSize('xxxlarge')" class="subtitle-size-btn" data-size="xxxlarge">XXXL</button>
+                </div>
+                <div class="control-group">
+                    <label>Font:</label>
+                    <select id="subtitleFont" onchange="changeSubtitleFont(this.value)" class="subtitle-font-select">
+                        <option value="Inter">Inter (Default)</option>
+                        <option value="Arial">Arial</option>
+                        <option value="Verdana">Verdana</option>
+                        <option value="Georgia">Georgia</option>
+                        <option value="Courier New">Courier New</option>
+                    </select>
+                </div>
+                <div class="control-group">
+                    <label>Subtitle Language:</label>
+                    <select id="subtitleLanguage" onchange="changeSubtitleLanguage(this.value)" class="subtitle-font-select">
+                        <option value="">No subtitles</option>
+                    </select>
+                </div>
+                <div class="control-group">
+                    <button onclick="translateCurrentSubtitle()" class="btn btn-secondary" style="font-size: 0.9rem; padding: 8px 16px;">
+                        🌐 Translate Hint
+                    </button>
+                    <button onclick="translateVideoSubtitleFile()" class="btn btn-secondary" style="font-size: 0.9rem; padding: 8px 16px;">
+                        🌐 Translate File
+                    </button>
+                </div>
+            </div>
+            <!-- Translation hint display -->
+            <div id="translationHint" style="display: none; margin-top: 15px; padding: 15px; background: rgba(79, 172, 254, 0.1); border-left: 4px solid var(--success-start); border-radius: 6px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                    <strong style="color: var(--success-start);">🌐 Translation</strong>
+                    <button onclick="closeTranslationHint()" style="background: none; border: none; color: var(--text-secondary); cursor: pointer; font-size: 1.2rem;">&times;</button>
+                </div>
+                <div id="translationText" style="color: var(--text-primary); line-height: 1.6;"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filter Editor Modal -->
+    <div id="filterModal" class="modal">
+        <div class="modal-content modal-filter">
+            <span class="modal-close" onclick="closeFilterEditor()">&times;</span>
+            <h2>🔍 Hallucination Filter Editor</h2>
+            <p class="modal-subtitle">Manage patterns to clean hallucinated text from subtitles</p>
+
+            <div class="filter-section">
+                <h3>Bad Phrases</h3>
+                <small>Exact phrases that will be removed completely</small>
+                <div class="filter-input-group">
+                    <input type="text" id="newBadPhrase" placeholder="Enter phrase (e.g., 'subscribe')" />
+                    <button onclick="addBadPhrase()" class="btn btn-primary">+ Add</button>
+                </div>
+                <div id="badPhrasesList" class="filter-list"></div>
+            </div>
+
+            <div class="filter-section">
+                <h3>Bad Patterns (Regex)</h3>
+                <small>Regular expression patterns for advanced matching</small>
+                <div class="filter-input-group">
+                    <input type="text" id="newBadPattern" placeholder="Enter regex pattern (e.g., '^[a-z]{1,2}$')" />
+                    <button onclick="addBadPattern()" class="btn btn-primary">+ Add</button>
+                </div>
+                <div id="badPatternsList" class="filter-list"></div>
+            </div>
+
+            <div class="filter-section">
+                <h3>Test Pattern</h3>
+                <small>Test your filters against sample text</small>
+                <textarea id="testText" placeholder="Paste subtitle text here to test..." rows="4"></textarea>
+                <button onclick="testFilters()" class="btn btn-secondary">🧪 Test Filters</button>
+                <div id="testResult" class="test-result"></div>
+            </div>
+
+            <div class="filter-actions">
+                <button onclick="saveFilters()" class="btn btn-primary">💾 Save Filters</button>
+                <button onclick="exportFilters()" class="btn btn-secondary">📤 Export</button>
+                <button onclick="document.getElementById('importFilterFile').click()" class="btn btn-secondary">📥 Import</button>
+                <input type="file" id="importFilterFile" accept=".json" style="display:none;" onchange="importFilters(event)" />
+            </div>
+        </div>
+    </div>
+
+    <!-- Simple Upload Modal -->
+    <div id="uploadModal" class="modal">
+        <div class="modal-content">
+            <span class="modal-close" onclick="closeUploadModal()">&times;</span>
+            <h2>📤 Upload Files</h2>
+            <p class="modal-subtitle">Upload video or subtitle files without processing</p>
+
+            <div class="file-drop-zone" id="uploadDropZone">
+                <input
+                    type="file"
+                    id="uploadFiles"
+                    multiple
+                    accept="video/*,audio/*,.srt"
+                >
+                <div class="drop-zone-content" id="uploadDropContent">
+                    <div class="drop-icon">📁</div>
+                    <p class="drop-text">Drag and drop files here</p>
+                    <p class="drop-or">or</p>
+                    <button type="button" class="btn btn-secondary" onclick="document.getElementById('uploadFiles').click()">
+                        Browse Files
+                    </button>
+                    <small class="drop-hint">Multiple files supported</small>
+                </div>
+                <div id="uploadFileList" style="display: none;">
+                    <!-- Selected files will be listed here -->
+                </div>
+            </div>
+
+            <div id="uploadProgress" style="display: none; margin-top: 20px;">
+                <div class="progress-bar">
+                    <div class="progress-fill" id="uploadProgressBar" style="width: 0%"></div>
+                </div>
+                <p id="uploadStatus" style="text-align: center; margin-top: 10px; color: var(--text-secondary);"></p>
+            </div>
+
+            <div style="margin-top: 20px; text-align: right;">
+                <button onclick="closeUploadModal()" class="btn btn-secondary">Cancel</button>
+                <button onclick="startUpload()" id="uploadButton" class="btn btn-primary" disabled>Upload</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Create Folder Modal -->
+    <div id="createFolderModal" class="modal">
+        <div class="modal-content">
+            <span class="modal-close" onclick="closeCreateFolderModal()">&times;</span>
+            <h2>📁 Create New Folder</h2>
+            <p class="modal-subtitle">Create a folder in the current directory</p>
+
+            <div style="margin: 20px 0;">
+                <label for="newFolderName" style="display: block; margin-bottom: 8px;">Folder Name:</label>
+                <input
+                    type="text"
+                    id="newFolderName"
+                    placeholder="Enter folder name..."
+                    style="width: 100%; padding: 10px; border: 2px solid var(--border-color); border-radius: 6px; background: var(--bg-color); color: var(--text-primary);"
+                >
+            </div>
+
+            <div style="margin-top: 20px; text-align: right; display: flex; gap: 10px; justify-content: flex-end;">
+                <button onclick="closeCreateFolderModal()" class="btn btn-secondary">Cancel</button>
+                <button onclick="createNewFolder()" class="btn btn-primary">Create</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Move File/Folder Modal -->
+    <div id="moveModal" class="modal">
+        <div class="modal-content">
+            <span class="modal-close" onclick="closeMoveModal()">&times;</span>
+            <h2>📦 Move Item</h2>
+            <p class="modal-subtitle" id="moveItemName">Moving: <span id="moveItemPath"></span></p>
+
+            <div style="margin: 20px 0;">
+                <label style="display: block; margin-bottom: 8px;">Select Destination Folder:</label>
+                <select
+                    id="moveDestination"
+                    style="width: 100%; padding: 10px; border: 2px solid var(--border-color); border-radius: 6px; background: var(--bg-color); color: var(--text-primary);"
+                >
+                    <option value="">/ (Root)</option>
+                    <!-- Populated dynamically -->
+                </select>
+            </div>
+
+            <div style="margin-top: 20px; text-align: right; display: flex; gap: 10px; justify-content: flex-end;">
+                <button onclick="closeMoveModal()" class="btn btn-secondary">Cancel</button>
+                <button onclick="confirmMove()" class="btn btn-primary">Move</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Confirmation Modal -->
+    <div id="confirmModal" class="modal">
+        <div class="modal-content" style="max-width: 500px;">
+            <h2 id="confirmTitle" style="margin-bottom: 15px;">⚠️ Confirm Action</h2>
+            <p id="confirmMessage" style="margin-bottom: 25px; line-height: 1.6; color: var(--text-secondary);"></p>
+
+            <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                <button onclick="closeConfirmModal(false)" class="btn btn-secondary">Cancel</button>
+                <button onclick="closeConfirmModal(true)" class="btn btn-primary" id="confirmButton">Confirm</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Translation Dialog -->
+    <div id="translateModal" class="modal">
+        <div class="modal-content" style="max-width: 500px;">
+            <span class="modal-close" onclick="closeTranslateDialog()">&times;</span>
+            <h2>🌐 Translate Subtitle</h2>
+            <p class="modal-subtitle" id="translateFileName">Select source and target languages</p>
+
+            <div style="margin: 20px 0;">
+                <label style="display: block; margin-bottom: 8px; font-weight: 500;">Source Language:</label>
+                <select
+                    id="translateSourceLang"
+                    style="width: 100%; padding: 10px; border: 2px solid var(--border-color); border-radius: 6px; background: var(--bg-color); color: var(--text-primary); margin-bottom: 15px;"
+                >
+                    <option value="auto">Auto-detect</option>
+                    <option value="en">English</option>
+                    <option value="es">Spanish</option>
+                    <option value="fr">French</option>
+                    <option value="de">German</option>
+                    <option value="it">Italian</option>
+                    <option value="pt">Portuguese</option>
+                    <option value="pl">Polish</option>
+                    <option value="tr">Turkish</option>
+                    <option value="ru">Russian</option>
+                    <option value="nl">Dutch</option>
+                    <option value="cs">Czech</option>
+                    <option value="ar">Arabic</option>
+                    <option value="zh">Chinese</option>
+                    <option value="ja">Japanese</option>
+                    <option value="ko">Korean</option>
+                    <option value="sr">Serbian</option>
+                    <option value="hr">Croatian</option>
+                </select>
+
+                <label style="display: block; margin-bottom: 8px; font-weight: 500;">Target Language:</label>
+                <select
+                    id="translateTargetLang"
+                    style="width: 100%; padding: 10px; border: 2px solid var(--border-color); border-radius: 6px; background: var(--bg-color); color: var(--text-primary);"
+                >
+                    <option value="en">English</option>
+                    <option value="es">Spanish</option>
+                    <option value="fr">French</option>
+                    <option value="de">German</option>
+                    <option value="it">Italian</option>
+                    <option value="pt">Portuguese</option>
+                    <option value="pl">Polish</option>
+                    <option value="tr">Turkish</option>
+                    <option value="ru">Russian</option>
+                    <option value="nl">Dutch</option>
+                    <option value="cs">Czech</option>
+                    <option value="ar">Arabic</option>
+                    <option value="zh">Chinese</option>
+                    <option value="ja">Japanese</option>
+                    <option value="ko">Korean</option>
+                    <option value="sr">Serbian</option>
+                    <option value="hr">Croatian</option>
+                </select>
+            </div>
+
+            <div style="margin-top: 20px; display: flex; gap: 10px; justify-content: flex-end;">
+                <button onclick="closeTranslateDialog()" class="btn btn-secondary">Cancel</button>
+                <button onclick="startTranslation()" class="btn btn-primary">🌐 Translate</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Client-Side Transcoding Progress Modal -->
+    <div id="clientTranscodeModal" class="modal">
+        <div class="modal-content" style="max-width: 600px;">
+            <h2>🎬 Transcoding in Browser</h2>
+            <p class="modal-subtitle" id="clientTranscodeFileName">Converting video to MP4...</p>
+
+            <div style="margin: 30px 0;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                    <span id="clientTranscodeStatus" style="color: var(--text-secondary);">Initializing FFmpeg...</span>
+                    <span id="clientTranscodePercent" style="color: var(--primary-start); font-weight: 600;">0%</span>
+                </div>
+                <div style="width: 100%; height: 8px; background: var(--bg-secondary); border-radius: 4px; overflow: hidden;">
+                    <div id="clientTranscodeProgress" style="width: 0%; height: 100%; background: linear-gradient(90deg, var(--primary-start), var(--primary-end)); transition: width 0.3s ease;"></div>
+                </div>
+            </div>
+
+            <div style="margin-top: 20px; text-align: center;">
+                <button onclick="cancelClientTranscode()" class="btn btn-secondary" id="clientTranscodeCancelBtn">Cancel</button>
+            </div>
+
+            <div style="margin-top: 20px; padding: 15px; background: rgba(102, 126, 234, 0.1); border-radius: 8px; font-size: 0.85rem; color: var(--text-secondary);">
+                <strong>ℹ️ About Client-Side Transcoding:</strong><br>
+                • Transcoding happens entirely in your browser<br>
+                • No server load or bandwidth usage<br>
+                • May be slower than server transcoding<br>
+                • Progress shows real-time conversion status
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>

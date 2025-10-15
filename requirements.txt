@@ -1,0 +1,24 @@
+# Core dependencies
+yt-dlp>=2023.10.13
+faster-whisper>=0.10.0
+transliterate>=1.10.2
+
+# Progress bars and user experience
+tqdm>=4.66.0
+
+# Configuration file support
+pyyaml>=6.0.1
+
+# Translation
+googletrans==4.0.0rc1
+
+# Web interface
+flask>=3.0.0
+flask-socketio>=5.3.5
+python-socketio>=5.10.0
+eventlet>=0.33.3
+psutil>=5.9.0
+
+# GPU acceleration (optional but recommended)
+# Install separately if needed:
+# pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118

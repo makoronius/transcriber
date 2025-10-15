@@ -1,0 +1,55 @@
+download:
+  download_dir: yt_downloads
+  cookies: youtube_cookies.txt
+  skip_existing_video: true
+  skip_existing_srt: true
+  workers: 1
+transcription:
+  transcriber: faster_whisper_latin.py
+  model: large-v2  # Optimized for RTX 3070 8GB - use large-v3 if you have 10GB+ VRAM
+  device: cuda
+  compute: float16
+  language: sr
+  beam_size: 10  # Reduced from 12 to save VRAM - still high quality
+  vad_filter: true  # Voice Activity Detection - improves speed and quality
+  temperature: 0.2
+  no_speech_threshold: 0.1
+  compression_threshold: 2.8
+  max_retries: 2
+hallucination_filters:
+  bad_phrases:
+  - hvala što pratite kanal
+  - Hvala vam.
+  - subscribe
+  - captioned by
+  - prodavanje
+  - teksting av
+  - thanks for watching
+  - teksting av nicolai winther
+  - u kojem se učinjava da je to učinjenje
+  bad_patterns:
+  - m{3,}
+  - a{3,}
+  - o{3,}
+  - e{3,}
+  - u{3,}
+  - h{3,}
+  - u+h+
+  - m+h+
+  - \b(\w{2,})\s+\1\s+\1
+  - (\w+),\s*\1,\s*\1
+  - (\w+\s+\w+),\s*\1,\s*\1
+  - ok{3,}
+  - ljo(\s+ljo){2,}
+  min_segment_duration: 0.3
+  min_word_length: 8
+logging:
+  enabled: true
+  log_file: logs/transcribe.log
+  log_level: INFO
+  max_size_mb: 10
+  backup_count: 3
+web_server_logging:
+  enabled: true
+  log_file: logs/web_server.log
+  log_level: INFO

@@ -1,0 +1,70 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+.venv
+Scripts/
+Lib/
+Include/
+pip-selfcheck.json
+pyvenv.cfg
+
+# Docker
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs (will be mounted as volume)
+logs/
+*.log
+
+# Downloads and uploads (will be mounted as volumes)
+yt_downloads/
+uploads/
+backups/
+
+# Database (will be mounted as volume)
+*.db
+*.db-journal
+
+# Large model files (will be downloaded in container)
+models/
+
+# Temporary files
+*.tmp
+*.temp
+.cache/
+
+# Documentation
+README.md
+*.md
+docs/
+
+# Test files
+test_*
+*_test.py
+
+# Environment files
+.env
+.env.local

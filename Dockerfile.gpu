@@ -1,0 +1,58 @@
+# Dockerfile for GPU-accelerated transcription with CUDA
+# Based on NVIDIA CUDA runtime with Python 3.12
+FROM nvidia/cuda:12.1.0-runtime-ubuntu22.04
+
+# Set working directory
+WORKDIR /app
+
+# Prevent interactive prompts during installation
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install Python 3.12 and system dependencies
+RUN apt-get update && apt-get install -y \
+    software-properties-common \
+    && add-apt-repository ppa:deadsnakes/ppa \
+    && apt-get update && apt-get install -y \
+    python3.12 \
+    python3.12-venv \
+    python3.12-dev \
+    python3-pip \
+    ffmpeg \
+    git \
+    wget \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create symbolic links for python
+RUN update-alternatives --install /usr/bin/python python /usr/bin/python3.12 1 \
+    && update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.12 1
+
+# Upgrade pip
+RUN python -m pip install --upgrade pip
+
+# Copy requirements first for better caching
+COPY requirements.txt .
+
+# Install Python dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Install PyTorch with CUDA 12.1 support
+RUN pip install --no-cache-dir torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
+
+# Copy application files
+COPY *.py .
+COPY config.yaml .
+
+# Create directories for downloads and logs
+RUN mkdir -p yt_downloads logs
+
+# Set environment variables
+ENV PYTHONUNBUFFERED=1
+ENV DEVICE=cuda
+ENV NVIDIA_VISIBLE_DEVICES=all
+ENV NVIDIA_DRIVER_CAPABILITIES=compute,utility
+
+# Verify CUDA installation
+RUN python -c "import torch; print(f'PyTorch version: {torch.__version__}'); print(f'CUDA available: {torch.cuda.is_available()}'); print(f'CUDA version: {torch.version.cuda if torch.cuda.is_available() else \"N/A\"}')"
+
+# Default command
+CMD ["python", "transcribe_playlist.py", "--help"]

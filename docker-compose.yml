@@ -1,0 +1,61 @@
+services:
+  whisper-web:
+    build: .
+    container_name: whisper-transcriber
+    command: python web_app.py --port 5000
+    ports:
+      - "5001:5000"
+    volumes:
+      # Persistent data volumes
+      - ./yt_downloads:/app/yt_downloads
+      - ./uploads:/app/uploads
+      - ./logs:/app/logs
+      - ./backups:/app/backups
+      # Configuration files
+      - ./config.yaml:/app/config.yaml
+      - ./youtube_cookies.txt:/app/youtube_cookies.txt:ro
+      # Database
+      - ./whisper_jobs.db:/app/whisper_jobs.db
+      # Development: Hot-reload for static files and templates
+      - ./static:/app/static
+      - ./templates:/app/templates
+    environment:
+      - FLASK_ENV=production
+      - SECRET_KEY=${SECRET_KEY:-your-secret-key-here}
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+    restart: unless-stopped
+    # GPU support - requires nvidia-docker runtime
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    # For CPU-only, comment out the deploy section above
+
+    # Optional: Resource limits
+    # mem_limit: 16g
+    # cpus: 8
+
+  # Optional: Add nginx reverse proxy for production
+  # nginx:
+  #   image: nginx:alpine
+  #   container_name: whisper-nginx
+  #   ports:
+  #     - "80:80"
+  #     - "443:443"
+  #   volumes:
+  #     - ./nginx.conf:/etc/nginx/nginx.conf:ro
+  #   depends_on:
+  #     - whisper-web
+  #   restart: unless-stopped
+
+# Named volumes section (optional)
+# Uncomment below if you prefer named volumes over bind mounts
+# volumes:
+#   yt_downloads:
+#   uploads:
+#   logs:
+#   backups:
