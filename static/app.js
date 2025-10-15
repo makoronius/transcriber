@@ -4140,7 +4140,8 @@ async function transcodeClientSide(videoPath, fileName) {
 
             ffmpegInstance.on('progress', ({ progress }) => {
                 if (clientTranscodeAborted) return;
-                const percent = Math.round(progress * 100);
+                // Map ffmpeg progress (0-1) to 20-95% range
+                const percent = Math.round(20 + (progress * 75));
                 statusEl.textContent = 'Transcoding...';
                 percentEl.textContent = percent + '%';
                 progressEl.style.width = percent + '%';
@@ -4157,13 +4158,54 @@ async function transcodeClientSide(videoPath, fileName) {
         }
 
         statusEl.textContent = 'Downloading video...';
-        percentEl.textContent = '10%';
-        progressEl.style.width = '10%';
+        percentEl.textContent = '0%';
+        progressEl.style.width = '0%';
 
         const response = await fetch(`/api/files/${encodeURIComponent(videoPath)}`);
         if (!response.ok) throw new Error('Failed to fetch video');
 
-        const videoData = await response.arrayBuffer();
+        // Get file size from Content-Length header
+        const contentLength = response.headers.get('Content-Length');
+        const totalBytes = contentLength ? parseInt(contentLength, 10) : 0;
+
+        // Read the response as a stream to track download progress
+        const reader = response.body.getReader();
+        const chunks = [];
+        let receivedBytes = 0;
+
+        while (true) {
+            const { done, value } = await reader.read();
+
+            if (done) break;
+
+            chunks.push(value);
+            receivedBytes += value.length;
+
+            // Update progress (0-15% range for download)
+            if (totalBytes > 0) {
+                const downloadProgress = (receivedBytes / totalBytes) * 15;
+                const percent = Math.round(downloadProgress);
+                statusEl.textContent = `Downloading video... ${(receivedBytes / 1024 / 1024).toFixed(1)} MB / ${(totalBytes / 1024 / 1024).toFixed(1)} MB`;
+                percentEl.textContent = percent + '%';
+                progressEl.style.width = percent + '%';
+            } else {
+                // No content-length, just show bytes downloaded
+                statusEl.textContent = `Downloading video... ${(receivedBytes / 1024 / 1024).toFixed(1)} MB`;
+            }
+
+            if (clientTranscodeAborted) {
+                ModalManager.close(modal);
+                return null;
+            }
+        }
+
+        // Combine chunks into single Uint8Array
+        const videoData = new Uint8Array(receivedBytes);
+        let position = 0;
+        for (const chunk of chunks) {
+            videoData.set(chunk, position);
+            position += chunk.length;
+        }
 
         if (clientTranscodeAborted) {
             ModalManager.close(modal);
@@ -4171,13 +4213,13 @@ async function transcodeClientSide(videoPath, fileName) {
         }
 
         statusEl.textContent = 'Preparing video...';
-        percentEl.textContent = '20%';
-        progressEl.style.width = '20%';
+        percentEl.textContent = '15%';
+        progressEl.style.width = '15%';
 
         const inputName = 'input' + videoPath.substring(videoPath.lastIndexOf('.'));
         const outputName = 'output.mp4';
 
-        await ffmpegInstance.writeFile(inputName, new Uint8Array(videoData));
+        await ffmpegInstance.writeFile(inputName, videoData);
 
         if (clientTranscodeAborted) {
             ModalManager.close(modal);
