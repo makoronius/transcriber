@@ -1,0 +1,27 @@
+services:
+  webhook-server:
+    build:
+      context: .
+      dockerfile: Dockerfile.webhook
+    container_name: webhook-server
+    restart: unless-stopped
+    ports:
+      - "9000:9000"
+    volumes:
+      - ./deploy.sh:/opt/deployment/deploy.sh:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./logs:/var/log
+    environment:
+      - WEBHOOK_SECRET=${WEBHOOK_SECRET:-change-me-to-a-secure-secret}
+      - SSH_HOST=172.17.0.1
+      - SSH_USER=mark
+      - DEPLOY_SCRIPT=/opt/deployment/deploy.sh
+      - ALLOWED_BRANCHES=main,master
+      - LOG_FILE=/var/log/webhook-deploy.log
+    networks:
+      - gitea_default
+      - default
+
+networks:
+  gitea_default:
+    external: true

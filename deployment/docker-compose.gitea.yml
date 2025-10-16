@@ -1,0 +1,73 @@
+version: "3.8"
+
+services:
+  gitea:
+    image: gitea/gitea:latest
+    container_name: gitea
+    environment:
+      - USER_UID=1000
+      - USER_GID=1000
+      - GITEA__database__DB_TYPE=postgres
+      - GITEA__database__HOST=gitea-db:5432
+      - GITEA__database__NAME=gitea
+      - GITEA__database__USER=gitea
+      - GITEA__database__PASSWD=gitea_password_change_me
+      - GITEA__server__DOMAIN=localhost
+      - GITEA__server__SSH_DOMAIN=localhost
+      - GITEA__server__ROOT_URL=http://localhost:3000/
+      - GITEA__server__HTTP_PORT=3000
+      - GITEA__server__SSH_PORT=2222
+      - GITEA__security__INSTALL_LOCK=false
+      # Enable Gitea Actions (CI/CD)
+      - GITEA__actions__ENABLED=true
+    restart: unless-stopped
+    networks:
+      - gitea
+    volumes:
+      - gitea-data:/data
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+    ports:
+      - "3000:3000"  # Web UI
+      - "2222:22"    # SSH
+    depends_on:
+      - gitea-db
+
+  gitea-db:
+    image: postgres:15-alpine
+    container_name: gitea-db
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=gitea
+      - POSTGRES_PASSWORD=gitea_password_change_me
+      - POSTGRES_DB=gitea
+    networks:
+      - gitea
+    volumes:
+      - gitea-db:/var/lib/postgresql/data
+
+  # Gitea Actions Runner (for CI/CD)
+  gitea-runner:
+    image: gitea/act_runner:latest
+    container_name: gitea-runner
+    restart: unless-stopped
+    depends_on:
+      - gitea
+    volumes:
+      - gitea-runner:/data
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - GITEA_INSTANCE_URL=http://gitea:3000
+      - GITEA_RUNNER_REGISTRATION_TOKEN=your_token_here
+      # This token will be obtained after Gitea setup
+    networks:
+      - gitea
+
+networks:
+  gitea:
+    driver: bridge
+
+volumes:
+  gitea-data:
+  gitea-db:
+  gitea-runner:
