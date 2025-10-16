@@ -11,12 +11,13 @@ services:
       - ./deploy.sh:/opt/deployment/deploy.sh:ro
       - /var/run/docker.sock:/var/run/docker.sock
       - ./logs:/var/log
+    env_file:
+      - .env
     environment:
-      - WEBHOOK_SECRET=${WEBHOOK_SECRET:-change-me-to-a-secure-secret}
       - SSH_HOST=172.17.0.1
       - SSH_USER=mark
       - DEPLOY_SCRIPT=/opt/deployment/deploy.sh
-      - ALLOWED_BRANCHES=main,master
+      - ALLOWED_BRANCHES=main
       - LOG_FILE=/var/log/webhook-deploy.log
     networks:
       - gitea_default

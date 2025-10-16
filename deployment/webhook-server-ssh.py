@@ -19,7 +19,7 @@ WEBHOOK_SECRET = os.environ.get('WEBHOOK_SECRET', 'change-me-to-a-secure-secret'
 SSH_HOST = os.environ.get('SSH_HOST', 'localhost')  # localhost from container = WSL host
 SSH_USER = os.environ.get('SSH_USER', 'mark')
 DEPLOY_SCRIPT = os.environ.get('DEPLOY_SCRIPT', '/opt/deployment/deploy.sh')
-ALLOWED_BRANCHES = os.environ.get('ALLOWED_BRANCHES', 'main,master').split(',')
+ALLOWED_BRANCHES = os.environ.get('ALLOWED_BRANCHES', 'main').split(',')
 LOG_FILE = os.environ.get('LOG_FILE', '/var/log/webhook-deploy.log')
 
 # Setup logging

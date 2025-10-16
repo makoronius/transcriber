@@ -1,21 +1,78 @@
 # Update-DockerPortProxy.ps1
-# Purpose: Maintain Windows portproxy mappings for WSL2 (Docker + SSH + Gitea + Portainer)
+# Purpose: Maintain Windows portproxy mappings for WSL2 using CSV configuration
 # Requires Administrator privileges
+# Usage: .\Update-DockerPortProxy.ps1 [-CsvPath <path>] [-ListenAddress <address>]
 
-Write-Host "=== Updating WSL2 Port-Proxy Rules ===" -ForegroundColor Cyan
+param(
+    [string]$CsvPath = "$PSScriptRoot\port-mappings.csv",
+    [string]$ListenAddress = "0.0.0.0"
+)
 
-# Wait for WSL to be ready
-$maxTries = 15
-for ($i = 1; $i -le $maxTries; $i++) {
-    $WSL_IP = (wsl hostname -I).Split(' ')[0]
-    if ($WSL_IP) { break }
-    Start-Sleep -Seconds 2
-}
-if (-not $WSL_IP) {
-    Write-Host "ERROR: Could not retrieve WSL IP address." -ForegroundColor Red
+Write-Host "=== WSL2 Port-Proxy Manager (CSV-based) ===" -ForegroundColor Cyan
+Write-Host ""
+
+# Check if running as Administrator
+$isAdmin = ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+if (-not $isAdmin) {
+    Write-Host "ERROR: This script must be run as Administrator" -ForegroundColor Red
+    Write-Host "Please right-click and select 'Run as Administrator'" -ForegroundColor Yellow
     exit 1
 }
-Write-Host ("WSL IP detected: {0}" -f $WSL_IP) -ForegroundColor Yellow
+
+# Wait for WSL to be ready
+Write-Host "Detecting WSL IP address..." -ForegroundColor Yellow
+$maxTries = 15
+$WSL_IP = $null
+
+for ($i = 1; $i -le $maxTries; $i++) {
+    $WSL_IP = (wsl hostname -I 2>$null).Split(' ')[0]
+    if ($WSL_IP) { break }
+    Write-Host "  Attempt $i/$maxTries..." -ForegroundColor Gray
+    Start-Sleep -Seconds 2
+}
+
+if (-not $WSL_IP) {
+    Write-Host "ERROR: Could not retrieve WSL IP address." -ForegroundColor Red
+    Write-Host "Make sure WSL is running: wsl --list --running" -ForegroundColor Yellow
+    exit 1
+}
+
+Write-Host "WSL IP detected: $WSL_IP" -ForegroundColor Green
+Write-Host ""
+
+# Check if CSV file exists
+if (-not (Test-Path $CsvPath)) {
+    Write-Host "ERROR: CSV file not found: $CsvPath" -ForegroundColor Red
+    Write-Host ""
+    Write-Host "Creating example CSV file..." -ForegroundColor Yellow
+
+    $exampleCsv = @"
+Port,Service,Description
+22,SSH,SSH access to WSL
+3000,Gitea Web,Gitea web interface
+5001,App,Your application
+"@
+
+    $exampleCsv | Out-File -FilePath $CsvPath -Encoding UTF8
+    Write-Host "Created: $CsvPath" -ForegroundColor Green
+    Write-Host "Please edit the file and run this script again." -ForegroundColor Yellow
+    exit 0
+}
+
+# Read port mappings from CSV
+Write-Host "Reading port mappings from: $CsvPath" -ForegroundColor Yellow
+try {
+    $portMappings = Import-Csv -Path $CsvPath
+    Write-Host "Loaded $($portMappings.Count) port mappings" -ForegroundColor Green
+} catch {
+    Write-Host "ERROR: Failed to read CSV file" -ForegroundColor Red
+    Write-Host $_.Exception.Message -ForegroundColor Red
+    exit 1
+}
+
+Write-Host ""
+Write-Host "=== Configuring Port Proxies ===" -ForegroundColor Cyan
+Write-Host ""
 
 # Helper function to (re)create a rule
 function Set-PortProxyRule {
@@ -26,63 +83,110 @@ function Set-PortProxyRule {
         [string]$ListenAddress = "0.0.0.0"
     )
 
-    # Delete existing mapping
+    # Delete existing mapping (suppress errors if not exists)
     netsh interface portproxy delete v4tov4 listenport=$ListenPort listenaddress=$ListenAddress 2>$null | Out-Null
 
     # Add new mapping
-    netsh interface portproxy add v4tov4 listenport=$ListenPort listenaddress=$ListenAddress connectport=$ConnectPort connectaddress=$WSL_IP
+    $result = netsh interface portproxy add v4tov4 listenport=$ListenPort listenaddress=$ListenAddress connectport=$ConnectPort connectaddress=$WSL_IP
 
-    Write-Host ("[{0}] proxy set: {1}:{2} -> {3}:{4}" -f $RuleName, $ListenAddress, $ListenPort, $WSL_IP, $ConnectPort) -ForegroundColor Green
+    if ($LASTEXITCODE -eq 0) {
+        $msg = "  [" + $RuleName + "] " + $ListenAddress + ":" + $ListenPort + " -> " + $WSL_IP + ":" + $ConnectPort
+        Write-Host $msg -ForegroundColor Green
+    } else {
+        Write-Host "  [ERROR] Failed to create port proxy for $RuleName" -ForegroundColor Red
+    }
 }
 
-# Docker (TLS 2376)
-Set-PortProxyRule -ListenPort 2376 -ConnectPort 2376 -RuleName "Docker TLS"
+# Process each port mapping from CSV
+foreach ($mapping in $portMappings) {
+    $port = [int]$mapping.Port
+    $service = $mapping.Service
 
-# SSH (22)
-Set-PortProxyRule -ListenPort 22 -ConnectPort 22 -RuleName "SSH"
-
-# Gitea Web UI (3000)
-Set-PortProxyRule -ListenPort 3000 -ConnectPort 3000 -RuleName "Gitea Web"
-
-# Gitea SSH (2222)
-Set-PortProxyRule -ListenPort 2222 -ConnectPort 2222 -RuleName "Gitea SSH"
-
-# Portainer HTTPS (9443)
-Set-PortProxyRule -ListenPort 9443 -ConnectPort 9443 -RuleName "Portainer HTTPS"
-
-# Portainer HTTP (8000)
-Set-PortProxyRule -ListenPort 8000 -ConnectPort 8000 -RuleName "Portainer HTTP"
-
-# Webhook Server (9000) - for future CI/CD
-Set-PortProxyRule -ListenPort 9000 -ConnectPort 9000 -RuleName "Webhook Server"
-
-# Firewall exceptions (only added once)
-$firewallRules = @(
-    @{Name="WSL2 Docker TLS 2376"; Port=2376},
-    @{Name="WSL2 SSH 22"; Port=22},
-    @{Name="WSL2 Gitea Web 3000"; Port=3000},
-    @{Name="WSL2 Gitea SSH 2222"; Port=2222},
-    @{Name="WSL2 Portainer HTTPS 9443"; Port=9443},
-    @{Name="WSL2 Portainer HTTP 8000"; Port=8000},
-    @{Name="WSL2 Webhook 9000"; Port=9000}
-)
-
-foreach ($rule in $firewallRules) {
-    if (-not (Get-NetFirewallRule -DisplayName $rule.Name -ErrorAction SilentlyContinue)) {
-        New-NetFirewallRule -DisplayName $rule.Name -Direction Inbound -Protocol TCP -LocalPort $rule.Port -Action Allow | Out-Null
-        Write-Host ("Firewall rule created: {0}" -f $rule.Name) -ForegroundColor Yellow
+    if ($port -gt 0) {
+        Set-PortProxyRule -ListenPort $port -ConnectPort $port -RuleName $service -ListenAddress $ListenAddress
     }
 }
 
 Write-Host ""
-Write-Host "=== Port-proxy update completed ===" -ForegroundColor Cyan
+Write-Host "=== Configuring Firewall Rules ===" -ForegroundColor Cyan
 Write-Host ""
-Write-Host "Active Port Mappings:" -ForegroundColor Cyan
-netsh interface portproxy show v4tov4
+
+# Create firewall rules for each port
+$firewallCreated = 0
+$firewallExists = 0
+
+foreach ($mapping in $portMappings) {
+    $port = [int]$mapping.Port
+    $service = $mapping.Service
+    $ruleName = "WSL2 " + $service + " " + $port
+
+    if ($port -gt 0) {
+        $existingRule = Get-NetFirewallRule -DisplayName $ruleName -ErrorAction SilentlyContinue
+
+        if (-not $existingRule) {
+            try {
+                New-NetFirewallRule -DisplayName $ruleName -Direction Inbound -Protocol TCP -LocalPort $port -Action Allow | Out-Null
+                Write-Host "  Created firewall rule: $ruleName" -ForegroundColor Green
+                $firewallCreated++
+            } catch {
+                Write-Host "  Failed to create firewall rule: $ruleName" -ForegroundColor Red
+            }
+        } else {
+            Write-Host "  Firewall rule exists: $ruleName" -ForegroundColor Gray
+            $firewallExists++
+        }
+    }
+}
+
 Write-Host ""
-Write-Host "You can now access services at:" -ForegroundColor Green
-Write-Host "  Gitea:           http://<this-pc-ip>:3000" -ForegroundColor White
-Write-Host "  Portainer:       https://<this-pc-ip>:9443" -ForegroundColor White
-Write-Host "  Gitea SSH:       ssh://git@<this-pc-ip>:2222" -ForegroundColor White
-Write-Host "  Docker:          tcp://<this-pc-ip>:2376" -ForegroundColor White
-Write-Host "  Webhook:         http://<this-pc-ip>:9000" -ForegroundColor White
+if ($firewallCreated -gt 0) {
+    Write-Host "Created $firewallCreated new firewall rules" -ForegroundColor Green
+}
+if ($firewallExists -gt 0) {
+    Write-Host "$firewallExists firewall rules already existed" -ForegroundColor Gray
+}
+
+Write-Host ""
+Write-Host "=== Configuration Complete ===" -ForegroundColor Cyan
+Write-Host ""
+
+# Display active port mappings
+Write-Host "Active Port Proxies:" -ForegroundColor Cyan
+$activeProxies = netsh interface portproxy show v4tov4
+
+if ($activeProxies) {
+    $activeProxies | ForEach-Object { Write-Host $_ -ForegroundColor White }
+} else {
+    Write-Host "  (none)" -ForegroundColor Gray
+}
+
+Write-Host ""
+Write-Host "=== Service URLs ===" -ForegroundColor Cyan
+Write-Host ""
+
+# Get the actual Windows IP address for display
+$windowsIP = (Get-NetIPAddress -AddressFamily IPv4 | Where-Object { $_.InterfaceAlias -notlike "*WSL*" -and $_.InterfaceAlias -notlike "*Loopback*" } | Select-Object -First 1).IPAddress
+
+foreach ($mapping in $portMappings) {
+    $port = $mapping.Port
+    $service = $mapping.Service
+    $description = $mapping.Description
+
+    if ($port -gt 0) {
+        Write-Host "  $service ($description)" -ForegroundColor Yellow
+        Write-Host "    http://" -NoNewline -ForegroundColor Gray
+        Write-Host $windowsIP -NoNewline -ForegroundColor White
+        Write-Host ":" -NoNewline -ForegroundColor Gray
+        Write-Host $port -ForegroundColor White
+    }
+}
+
+Write-Host ""
+Write-Host "=== Notes ===" -ForegroundColor Cyan
+Write-Host "  - WSL IP addresses change on reboot" -ForegroundColor Yellow
+Write-Host "  - Run this script after restarting WSL" -ForegroundColor Yellow
+Write-Host "  - Edit '$CsvPath' to add/remove ports" -ForegroundColor Yellow
+Write-Host ""
+Write-Host "To remove all port proxies:" -ForegroundColor Gray
+Write-Host "  netsh interface portproxy reset" -ForegroundColor White
+Write-Host ""

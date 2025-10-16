@@ -1,0 +1,9 @@
+Port,Service,Description
+2376,Docker TLS,Docker daemon TLS port
+22,SSH,SSH access to WSL
+3000,Gitea Web,Gitea web interface
+2222,Gitea SSH,Gitea SSH for git operations
+9443,Portainer HTTPS,Portainer web UI (HTTPS)
+8000,Portainer HTTP,Portainer web UI (HTTP)
+9000,Webhook Server,CI/CD webhook receiver
+5001,Whisper App,Whisper transcription web application
