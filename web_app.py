@@ -1751,7 +1751,9 @@ def run_transcode_job(job_id, input_path, output_path):
         # Parse FFmpeg progress output
         import re
         time_pattern = re.compile(r'out_time_ms=(\d+)')
+        time_pattern_alt = re.compile(r'out_time=(\d+):(\d+):(\d+)\.(\d+)')
         last_progress = 10
+        last_update_time = 0
 
         for line in process.stdout:
             # Check if job was cancelled
@@ -1765,21 +1767,37 @@ def run_transcode_job(job_id, input_path, output_path):
                 process.terminate()
                 break
 
-            # Parse time progress
+            # Parse time progress - try microseconds format first
+            time_seconds = None
             match = time_pattern.search(line)
-            if match and duration:
+            if match:
                 time_ms = int(match.group(1))
                 time_seconds = time_ms / 1000000.0
+            else:
+                # Try HH:MM:SS.mmm format
+                match_alt = time_pattern_alt.search(line)
+                if match_alt:
+                    hours = int(match_alt.group(1))
+                    minutes = int(match_alt.group(2))
+                    seconds = int(match_alt.group(3))
+                    time_seconds = hours * 3600 + minutes * 60 + seconds
+
+            if time_seconds is not None and duration:
                 progress_pct = min((time_seconds / duration) * 100, 99)
                 # Map to 10-95% range
                 progress = int(10 + (progress_pct * 0.85))
 
-                if progress > last_progress:
+                # Throttle updates to every 1% or every 2 seconds
+                import time
+                current_time = time.time()
+                if progress > last_progress or (current_time - last_update_time) > 2:
                     update_job_status(
                         job_id, 'running', progress,
                         f'🔄 Transcoding: {time_seconds:.1f}s / {duration:.1f}s ({progress}%)'
                     )
                     last_progress = progress
+                    last_update_time = current_time
+                    job_logger.debug(f"Progress: {progress}% ({time_seconds:.1f}s / {duration:.1f}s)")
 
         # Wait for process to complete
         process.wait()
