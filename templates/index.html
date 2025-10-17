@@ -870,13 +870,13 @@
             <span class="modal-close" onclick="closeFolderBrowserModal()">&times;</span>
             <h2>📂 Browse Directories</h2>
 
-            <div style="margin-bottom: 15px; padding: 10px; background: #f8f9fa; border-radius: 6px; display: flex; align-items: center; gap: 10px;">
-                <strong style="color: #666;">Current:</strong>
-                <code id="currentBrowsePath" style="flex: 1; background: white; padding: 5px 10px; border-radius: 4px; overflow: auto;">Loading...</code>
+            <div style="margin-bottom: 15px; padding: 10px; background: var(--bg-secondary); border-radius: 6px; display: flex; align-items: center; gap: 10px;">
+                <strong style="color: var(--text-secondary);">Current:</strong>
+                <code id="currentBrowsePath" style="flex: 1; background: var(--bg-primary); border: 1px solid var(--border-color); padding: 5px 10px; border-radius: 4px; overflow: auto; color: var(--text-primary); font-size: 0.9em;">Loading...</code>
             </div>
 
-            <div id="folderBrowserContent" style="flex: 1; overflow-y: auto; min-height: 300px; border: 1px solid #ddd; border-radius: 6px; padding: 10px; background: white;">
-                <p style="text-align: center; color: #999;">Loading directories...</p>
+            <div id="folderBrowserContent" style="flex: 1; overflow-y: auto; min-height: 300px; border: 1px solid var(--border-color); border-radius: 6px; padding: 10px; background: var(--bg-primary);">
+                <p style="text-align: center; color: var(--text-secondary);">Loading directories...</p>
             </div>
 
             <div style="margin-top: 15px; display: flex; gap: 10px; justify-content: space-between;">

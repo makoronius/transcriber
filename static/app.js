@@ -3011,7 +3011,7 @@ async function loadDirectories(path) {
         const data = await response.json();
 
         if (!response.ok) {
-            content.innerHTML = `<p style="text-align: center; color: #e74c3c;">${data.error || 'Failed to load directories'}</p>`;
+            content.innerHTML = `<p style="text-align: center; color: var(--error-color, #e74c3c);">${data.error || 'Failed to load directories'}</p>`;
             return;
         }
 
@@ -3042,7 +3042,7 @@ async function loadDirectories(path) {
                 `;
             });
         } else {
-            html += '<p style="text-align: center; color: #999; padding: 20px;">No subdirectories found</p>';
+            html += '<p style="text-align: center; color: var(--text-secondary); padding: 20px;">No subdirectories found</p>';
         }
 
         content.innerHTML = html;
@@ -3060,9 +3060,10 @@ async function loadDirectories(path) {
                     border-radius: 6px;
                     cursor: pointer;
                     transition: background-color 0.2s;
+                    color: var(--text-primary);
                 }
                 .folder-item:hover {
-                    background-color: #f0f0f0;
+                    background-color: var(--bg-secondary);
                 }
                 .folder-icon {
                     font-size: 1.3em;
@@ -3070,6 +3071,7 @@ async function loadDirectories(path) {
                 .folder-name {
                     flex: 1;
                     font-family: monospace;
+                    color: var(--text-primary);
                 }
             `;
             document.head.appendChild(style);
@@ -3077,7 +3079,7 @@ async function loadDirectories(path) {
 
     } catch (error) {
         console.error('Error loading directories:', error);
-        content.innerHTML = '<p style="text-align: center; color: #e74c3c;">Failed to load directories</p>';
+        content.innerHTML = '<p style="text-align: center; color: var(--error-color, #e74c3c);">Failed to load directories</p>';
     }
 }
 
