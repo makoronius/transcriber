@@ -347,24 +347,28 @@
             <!-- File Browser -->
             <section class="card">
                 <h2>Downloaded Files</h2>
-                <div style="margin-bottom: 10px; padding: 8px 12px; background: #f8f9fa; border-radius: 6px; font-size: 0.9em; color: #666; display: flex; align-items: center; gap: 10px;">
-                    📂 Storage Directory:
+                <div style="margin-bottom: 10px; padding: 8px 12px; background: #f8f9fa; border-radius: 6px; font-size: 0.9em; color: #666; display: flex; align-items: center; gap: 8px;">
+                    <span style="white-space: nowrap;">📂 Storage:</span>
                     <input
                         type="text"
                         id="storagePathInput"
                         placeholder="yt_downloads"
-                        style="flex: 1; padding: 4px 8px; border: 1px solid #ddd; border-radius: 4px; font-family: monospace; font-size: 0.95em;"
+                        style="flex: 1; min-width: 300px; padding: 5px 10px; border: 1px solid #ddd; border-radius: 4px; font-family: monospace; font-size: 0.95em;"
                     />
+                    <button
+                        onclick="openFolderBrowserModal()"
+                        class="btn btn-secondary"
+                        style="padding: 5px 12px; font-size: 0.85em; white-space: nowrap;"
+                    >
+                        📁 Browse
+                    </button>
                     <button
                         onclick="updateStoragePath()"
                         class="btn btn-primary"
-                        style="padding: 4px 12px; font-size: 0.9em;"
+                        style="padding: 5px 10px; font-size: 0.85em;"
                     >
-                        💾 Save
+                        💾
                     </button>
-                    <small style="color: #999; font-style: italic;">
-                        (Restart required)
-                    </small>
                 </div>
                 <div class="file-browser-toolbar">
                     <button id="refreshFiles" class="btn btn-secondary" onclick="loadFiles()">🔄 Refresh</button>
@@ -856,6 +860,28 @@
                 • No server load or bandwidth usage<br>
                 • May be slower than server transcoding<br>
                 • Progress shows real-time conversion status
+            </div>
+        </div>
+    </div>
+
+    <!-- Folder Browser Modal -->
+    <div id="folderBrowserModal" class="modal">
+        <div class="modal-content" style="max-width: 700px; max-height: 80vh; overflow: hidden; display: flex; flex-direction: column;">
+            <span class="modal-close" onclick="closeFolderBrowserModal()">&times;</span>
+            <h2>📂 Browse Directories</h2>
+
+            <div style="margin-bottom: 15px; padding: 10px; background: #f8f9fa; border-radius: 6px; display: flex; align-items: center; gap: 10px;">
+                <strong style="color: #666;">Current:</strong>
+                <code id="currentBrowsePath" style="flex: 1; background: white; padding: 5px 10px; border-radius: 4px; overflow: auto;">Loading...</code>
+            </div>
+
+            <div id="folderBrowserContent" style="flex: 1; overflow-y: auto; min-height: 300px; border: 1px solid #ddd; border-radius: 6px; padding: 10px; background: white;">
+                <p style="text-align: center; color: #999;">Loading directories...</p>
+            </div>
+
+            <div style="margin-top: 15px; display: flex; gap: 10px; justify-content: space-between;">
+                <button onclick="selectCurrentDirectory()" class="btn btn-primary">✓ Select This Directory</button>
+                <button onclick="closeFolderBrowserModal()" class="btn btn-secondary">Cancel</button>
             </div>
         </div>
     </div>

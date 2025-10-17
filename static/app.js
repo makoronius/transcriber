@@ -2972,6 +2972,8 @@ async function updateStoragePath() {
 
         if (response.ok) {
             showNotification(result.message, 'success');
+            // Reload files to reflect new storage location
+            setTimeout(() => loadFiles(), 1000);
         } else {
             showNotification(result.error || 'Failed to update storage path', 'error');
         }
@@ -2979,6 +2981,111 @@ async function updateStoragePath() {
         console.error('Error updating storage path:', error);
         showNotification('Failed to update storage path', 'error');
     }
+}
+
+// Folder browser functionality
+let currentBrowsePath = '';
+
+async function openFolderBrowserModal() {
+    const modal = document.getElementById('folderBrowserModal');
+    ModalManager.open(modal);
+    await loadDirectories('');
+}
+
+function closeFolderBrowserModal() {
+    const modal = document.getElementById('folderBrowserModal');
+    ModalManager.close(modal);
+}
+
+async function loadDirectories(path) {
+    currentBrowsePath = path;
+    const content = document.getElementById('folderBrowserContent');
+    const pathDisplay = document.getElementById('currentBrowsePath');
+
+    pathDisplay.textContent = path || '(Root / Drives)';
+    content.innerHTML = '<p style="text-align: center; color: #999;">Loading directories...</p>';
+
+    try {
+        const url = path ? `/api/browse-directories?path=${encodeURIComponent(path)}` : '/api/browse-directories';
+        const response = await fetch(url);
+        const data = await response.json();
+
+        if (!response.ok) {
+            content.innerHTML = `<p style="text-align: center; color: #e74c3c;">${data.error || 'Failed to load directories'}</p>`;
+            return;
+        }
+
+        currentBrowsePath = data.current_path || '';
+        pathDisplay.textContent = currentBrowsePath || '(Root / Drives)';
+
+        let html = '';
+
+        // Add parent directory button if not at root
+        if (data.parent !== null) {
+            html += `
+                <div class="folder-item" onclick="loadDirectories('${data.parent.replace(/'/g, "\\'")}')">
+                    <span class="folder-icon">⬆️</span>
+                    <span class="folder-name">.. (Parent Directory)</span>
+                </div>
+            `;
+        }
+
+        // Add directories
+        if (data.items && data.items.length > 0) {
+            data.items.forEach(item => {
+                const escapedPath = item.path.replace(/'/g, "\\'").replace(/\\/g, '\\\\');
+                html += `
+                    <div class="folder-item" onclick="loadDirectories('${escapedPath}')">
+                        <span class="folder-icon">📁</span>
+                        <span class="folder-name">${item.name}</span>
+                    </div>
+                `;
+            });
+        } else {
+            html += '<p style="text-align: center; color: #999; padding: 20px;">No subdirectories found</p>';
+        }
+
+        content.innerHTML = html;
+
+        // Add CSS for folder items if not already present
+        if (!document.getElementById('folderBrowserStyles')) {
+            const style = document.createElement('style');
+            style.id = 'folderBrowserStyles';
+            style.textContent = `
+                .folder-item {
+                    display: flex;
+                    align-items: center;
+                    gap: 10px;
+                    padding: 10px;
+                    border-radius: 6px;
+                    cursor: pointer;
+                    transition: background-color 0.2s;
+                }
+                .folder-item:hover {
+                    background-color: #f0f0f0;
+                }
+                .folder-icon {
+                    font-size: 1.3em;
+                }
+                .folder-name {
+                    flex: 1;
+                    font-family: monospace;
+                }
+            `;
+            document.head.appendChild(style);
+        }
+
+    } catch (error) {
+        console.error('Error loading directories:', error);
+        content.innerHTML = '<p style="text-align: center; color: #e74c3c;">Failed to load directories</p>';
+    }
+}
+
+function selectCurrentDirectory() {
+    const storagePathInput = document.getElementById('storagePathInput');
+    storagePathInput.value = currentBrowsePath;
+    closeFolderBrowserModal();
+    showNotification('Directory selected. Click Save to apply changes.', 'info');
 }
 
 // Filter Editor Functions

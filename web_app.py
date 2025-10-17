@@ -394,10 +394,16 @@ def update_config():
         with open(config_path, 'w', encoding='utf-8') as f:
             yaml.dump(config, f, default_flow_style=False, allow_unicode=True, sort_keys=False)
 
-        logger.info(f"Storage path updated to: {storage_path}")
+        # Update app config immediately (no restart needed)
+        app.config['DOWNLOAD_FOLDER'] = storage_path
+
+        # Create directory if it doesn't exist
+        os.makedirs(storage_path, exist_ok=True)
+
+        logger.info(f"Storage path updated to: {storage_path} (applied immediately)")
         return jsonify({
             'status': 'success',
-            'message': 'Storage path updated. Please restart the application for changes to take effect.',
+            'message': 'Storage path updated successfully! Changes applied immediately.',
             'storage_path': storage_path
         })
 
@@ -2289,6 +2295,79 @@ def list_folders():
 
     except Exception as e:
         app.logger.error(f"Error listing folders: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/browse-directories', methods=['GET'])
+def browse_directories():
+    """Browse server filesystem directories"""
+    import platform
+
+    path = request.args.get('path', '')
+
+    try:
+        # If no path provided, show common starting points
+        if not path:
+            system = platform.system()
+            if system == 'Windows':
+                # Windows: show drives
+                import string
+                drives = []
+                for letter in string.ascii_uppercase:
+                    drive = f"{letter}:\\"
+                    if os.path.exists(drive):
+                        drives.append({
+                            'name': drive,
+                            'path': drive,
+                            'type': 'drive',
+                            'is_directory': True
+                        })
+                return jsonify({'items': drives, 'current_path': '', 'parent': None})
+            else:
+                # Linux/Mac: start at /
+                path = '/'
+
+        # Resolve absolute path
+        abs_path = os.path.abspath(path)
+
+        # Security check: ensure path exists and is a directory
+        if not os.path.exists(abs_path):
+            return jsonify({'error': 'Path does not exist'}), 404
+
+        if not os.path.isdir(abs_path):
+            return jsonify({'error': 'Path is not a directory'}), 400
+
+        # List directory contents
+        items = []
+        try:
+            for entry in os.listdir(abs_path):
+                entry_path = os.path.join(abs_path, entry)
+
+                # Only include directories
+                if os.path.isdir(entry_path):
+                    items.append({
+                        'name': entry,
+                        'path': entry_path,
+                        'type': 'directory',
+                        'is_directory': True
+                    })
+        except PermissionError:
+            return jsonify({'error': 'Permission denied'}), 403
+
+        # Sort alphabetically
+        items.sort(key=lambda x: x['name'].lower())
+
+        # Get parent directory
+        parent = os.path.dirname(abs_path) if abs_path != os.path.dirname(abs_path) else None
+
+        return jsonify({
+            'items': items,
+            'current_path': abs_path,
+            'parent': parent
+        })
+
+    except Exception as e:
+        logger.error(f"Error browsing directories: {e}")
         return jsonify({'error': str(e)}), 500
 
 
