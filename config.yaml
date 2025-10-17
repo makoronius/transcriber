@@ -1,5 +1,7 @@
+storage:
+  data_dir: yt_downloads  # Root directory for all video/audio files and subtitles
 download:
-  download_dir: yt_downloads
+  download_dir: yt_downloads  # Where to download YouTube videos (relative to data_dir or absolute path)
   cookies: youtube_cookies.txt
   skip_existing_video: true
   skip_existing_srt: true

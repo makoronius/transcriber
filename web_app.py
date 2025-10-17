@@ -59,13 +59,15 @@ except ImportError:
 # Set up comprehensive logging using basicConfig (more reliable)
 os.makedirs('logs', exist_ok=True)
 
-# Read logging configuration
+# Read logging configuration and storage settings
 log_config = {}
+storage_config = {}
 if os.path.exists('config.yaml'):
     try:
         with open('config.yaml', 'r', encoding='utf-8') as f:
             config = yaml.safe_load(f)
             log_config = config.get('web_server_logging', {})
+            storage_config = config.get('storage', {})
     except Exception as e:
         print(f"Warning: Could not read logging config: {e}")
 
@@ -97,8 +99,11 @@ logger.info("="*80)
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
 app.config['UPLOAD_FOLDER'] = 'uploads'
-app.config['DOWNLOAD_FOLDER'] = 'yt_downloads'
+app.config['DOWNLOAD_FOLDER'] = storage_config.get('data_dir', 'yt_downloads')  # Read from config.yaml storage.data_dir
 app.config['MAX_CONTENT_LENGTH'] = 10 * 1024 * 1024 * 1024  # 10GB max upload (for large video files)
+
+# Log the configured data storage location
+logger.info(f"Data storage directory: {app.config['DOWNLOAD_FOLDER']}")
 
 socketio = SocketIO(app, cors_allowed_origins="*")
 
@@ -347,7 +352,8 @@ def get_config():
             {'value': 0.6, 'label': '0.6 (Very noisy)'},
             {'value': 0.7, 'label': '0.7 (High noise tolerance)'},
             {'value': 0.8, 'label': '0.8 (Extreme noise)'}
-        ]
+        ],
+        'storage_path': app.config['DOWNLOAD_FOLDER']
     }
     return jsonify(config)
 
@@ -808,7 +814,7 @@ def run_download_job(job_id, url, parameters):
     update_job_status(job_id, 'running', 5, '📥 Starting download...')
 
     # Use download directory from config
-    download_dir = parameters.get('download_dir', 'yt_downloads')
+    download_dir = parameters.get('download_dir', app.config['DOWNLOAD_FOLDER'])
     os.makedirs(download_dir, exist_ok=True)
 
     if YTDLP_AVAILABLE:
@@ -1230,7 +1236,7 @@ def run_transcription_job(job_id, url, parameters):
 
                     result = transcribe_single_video(
                         video_url=url,
-                        download_dir=parameters.get('download_dir', 'yt_downloads'),
+                        download_dir=parameters.get('download_dir', app.config['DOWNLOAD_FOLDER']),
                         cookie_file=parameters.get('cookie_file'),
                         force=False,
                         transcription_params=transcription_params,
@@ -3289,7 +3295,7 @@ def create_transcription_from_download(job_id):
             parameters = {}
 
         # Scan download directory for video files
-        download_dir = parameters.get('download_dir', 'yt_downloads')
+        download_dir = parameters.get('download_dir', app.config['DOWNLOAD_FOLDER'])
         video_files = []
 
         app.logger.info(f"Scanning {download_dir} for video files...")
@@ -3360,7 +3366,7 @@ def get_system_info():
 
         # Directory Sizes
         directories = {
-            'yt_downloads': 'yt_downloads',
+            'downloads': app.config['DOWNLOAD_FOLDER'],
             'uploads': 'uploads',
             'logs': 'logs',
             'backups': 'backups'

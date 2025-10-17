@@ -449,6 +449,12 @@ async function loadConfig() {
         populateSelect('compute_type', config.compute_types);
         populateSelect('temperature', config.temperatures);
 
+        // Update storage path display in file browser
+        const storagePathDisplay = document.getElementById('storagePathDisplay');
+        if (storagePathDisplay && config.storage_path) {
+            storagePathDisplay.textContent = config.storage_path;
+        }
+
         // Wait a tick to ensure DOM is updated
         await new Promise(resolve => setTimeout(resolve, 0));
 
@@ -1175,6 +1181,10 @@ function showAudioStreamSelectionModalForExisting(tracks, filePath, originalForm
 
     document.body.insertAdjacentHTML('beforeend', modalHTML);
 
+    // Open modal using ModalManager to properly handle background
+    const modal = document.getElementById('audioStreamModal');
+    ModalManager.open(modal);
+
     // Store original form data for later
     window.pendingTranscriptionFormData = originalFormData;
 
@@ -1355,6 +1365,10 @@ function showAudioStreamSelectionModal(tracks, tempFilePath, originalFormData) {
 
     document.body.insertAdjacentHTML('beforeend', modalHTML);
 
+    // Open modal using ModalManager to properly handle background
+    const modal = document.getElementById('audioStreamModal');
+    ModalManager.open(modal);
+
     // Store original form data for later
     window.pendingTranscriptionFormData = originalFormData;
 
@@ -1386,6 +1400,9 @@ function showAudioStreamSelectionModal(tracks, tempFilePath, originalFormData) {
 function closeAudioStreamModal() {
     const modal = document.getElementById('audioStreamModal');
     if (modal) {
+        // Use ModalManager to properly close and re-enable background
+        ModalManager.close(modal);
+        // Remove modal from DOM after closing
         modal.remove();
     }
     window.pendingTranscriptionFormData = null;
@@ -1747,7 +1764,9 @@ async function showJobDetails(jobId) {
         `;
 
         document.getElementById('jobDetails').innerHTML = detailsHTML;
-        document.getElementById('jobModal').classList.add('show');
+        // Use ModalManager to properly open modal and disable background
+        const modal = document.getElementById('jobModal');
+        ModalManager.open(modal);
     } catch (error) {
         console.error('Failed to load job details:', error);
         showNotification('Failed to load job details', 'error');
@@ -3699,7 +3718,8 @@ async function deleteSubtitleWithSelection(videoPath, buttonElement) {
         title.textContent = '🗑️ Delete Subtitle';
         message.innerHTML = dialogHtml;
         confirmBtn.textContent = 'Delete';
-        modal.classList.add('show');
+        // Use ModalManager to properly open modal and disable background
+        ModalManager.open(modal);
 
         // Wait for user choice
         const result = await new Promise((resolve) => {
@@ -3717,7 +3737,8 @@ async function deleteSubtitleWithSelection(videoPath, buttonElement) {
             const cleanup = () => {
                 confirmBtn.removeEventListener('click', handleConfirm);
                 cancelBtn.removeEventListener('click', handleCancel);
-                modal.classList.remove('show');
+                // Use ModalManager to properly close and re-enable background
+                ModalManager.close(modal);
             };
 
             confirmBtn.addEventListener('click', handleConfirm);
@@ -4086,26 +4107,31 @@ function showConversionOptionsModal(fileName, fileExt) {
         document.body.insertAdjacentHTML('beforeend', modalHTML);
         const modal = document.getElementById('conversionOptionsModal');
 
-        window.conversionChoice = (choice) => {
+        // Open modal using ModalManager to properly handle background
+        ModalManager.open(modal);
+
+        const closeAndResolve = (choice) => {
+            // Close modal properly before removing
+            ModalManager.close(modal);
             modal.remove();
             delete window.conversionChoice;
             resolve(choice);
         };
 
+        window.conversionChoice = (choice) => {
+            closeAndResolve(choice);
+        };
+
         modal.addEventListener('click', (e) => {
             if (e.target === modal) {
-                modal.remove();
-                delete window.conversionChoice;
-                resolve('skip');
+                closeAndResolve('skip');
             }
         });
 
         const escapeHandler = (e) => {
             if (e.key === 'Escape') {
-                modal.remove();
-                delete window.conversionChoice;
                 document.removeEventListener('keydown', escapeHandler);
-                resolve('skip');
+                closeAndResolve('skip');
             }
         };
         document.addEventListener('keydown', escapeHandler);
