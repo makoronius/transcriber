@@ -19,6 +19,8 @@ services:
       # Development: Hot-reload for static files and templates
       - ./static:/app/static
       - ./templates:/app/templates
+      # Host system mounts (hypervisor only - allows access to /mnt storage)
+      - /mnt:/mnt
     environment:
       - FLASK_ENV=production
       - SECRET_KEY=${SECRET_KEY:-your-secret-key-here}
