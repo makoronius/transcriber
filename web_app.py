@@ -275,7 +275,14 @@ def detect_audio_tracks():
             os.remove(temp_path)
 
 
-@app.route('/api/config')
+@app.route('/api/config', methods=['GET', 'POST'])
+def handle_config():
+    """Get or update configuration options"""
+    if request.method == 'POST':
+        return update_config()
+    return get_config()
+
+
 def get_config():
     """Get available configuration options"""
     config = {
@@ -356,6 +363,47 @@ def get_config():
         'storage_path': app.config['DOWNLOAD_FOLDER']
     }
     return jsonify(config)
+
+
+def update_config():
+    """Update storage configuration"""
+    import yaml
+
+    data = request.get_json()
+    storage_path = data.get('storage_path', '').strip()
+
+    if not storage_path:
+        return jsonify({'error': 'Storage path cannot be empty'}), 400
+
+    config_path = 'config.yaml'
+
+    try:
+        # Load existing config
+        config = {}
+        if os.path.exists(config_path):
+            with open(config_path, 'r', encoding='utf-8') as f:
+                config = yaml.safe_load(f) or {}
+
+        # Update storage section
+        if 'storage' not in config:
+            config['storage'] = {}
+
+        config['storage']['data_dir'] = storage_path
+
+        # Save updated config
+        with open(config_path, 'w', encoding='utf-8') as f:
+            yaml.dump(config, f, default_flow_style=False, allow_unicode=True, sort_keys=False)
+
+        logger.info(f"Storage path updated to: {storage_path}")
+        return jsonify({
+            'status': 'success',
+            'message': 'Storage path updated. Please restart the application for changes to take effect.',
+            'storage_path': storage_path
+        })
+
+    except Exception as e:
+        logger.error(f"Failed to update storage path: {e}")
+        return jsonify({'error': str(e)}), 500
 
 
 @app.route('/api/submit', methods=['POST'])

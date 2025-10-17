@@ -449,10 +449,10 @@ async function loadConfig() {
         populateSelect('compute_type', config.compute_types);
         populateSelect('temperature', config.temperatures);
 
-        // Update storage path display in file browser
-        const storagePathDisplay = document.getElementById('storagePathDisplay');
-        if (storagePathDisplay && config.storage_path) {
-            storagePathDisplay.textContent = config.storage_path;
+        // Update storage path input in file browser
+        const storagePathInput = document.getElementById('storagePathInput');
+        if (storagePathInput && config.storage_path) {
+            storagePathInput.value = config.storage_path;
         }
 
         // Wait a tick to ensure DOM is updated
@@ -2945,6 +2945,40 @@ async function convertSrtToVtt(srtPath) {
     vttText += srtText.replace(/(\d{2}:\d{2}:\d{2}),(\d{3})/g, '$1.$2');
 
     return new Blob([vttText], { type: 'text/vtt' });
+}
+
+// Update storage path configuration
+async function updateStoragePath() {
+    const storagePathInput = document.getElementById('storagePathInput');
+    const newPath = storagePathInput.value.trim();
+
+    if (!newPath) {
+        showNotification('Storage path cannot be empty', 'error');
+        return;
+    }
+
+    try {
+        const response = await fetch('/api/config', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                storage_path: newPath
+            })
+        });
+
+        const result = await response.json();
+
+        if (response.ok) {
+            showNotification(result.message, 'success');
+        } else {
+            showNotification(result.error || 'Failed to update storage path', 'error');
+        }
+    } catch (error) {
+        console.error('Error updating storage path:', error);
+        showNotification('Failed to update storage path', 'error');
+    }
 }
 
 // Filter Editor Functions

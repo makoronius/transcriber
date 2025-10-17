@@ -347,8 +347,24 @@
             <!-- File Browser -->
             <section class="card">
                 <h2>Downloaded Files</h2>
-                <div style="margin-bottom: 10px; padding: 8px 12px; background: #f8f9fa; border-radius: 6px; font-size: 0.9em; color: #666;">
-                    📂 Storage: <code id="storagePathDisplay" style="background: #fff; padding: 2px 6px; border-radius: 3px; color: #333;">Loading...</code>
+                <div style="margin-bottom: 10px; padding: 8px 12px; background: #f8f9fa; border-radius: 6px; font-size: 0.9em; color: #666; display: flex; align-items: center; gap: 10px;">
+                    📂 Storage Directory:
+                    <input
+                        type="text"
+                        id="storagePathInput"
+                        placeholder="yt_downloads"
+                        style="flex: 1; padding: 4px 8px; border: 1px solid #ddd; border-radius: 4px; font-family: monospace; font-size: 0.95em;"
+                    />
+                    <button
+                        onclick="updateStoragePath()"
+                        class="btn btn-primary"
+                        style="padding: 4px 12px; font-size: 0.9em;"
+                    >
+                        💾 Save
+                    </button>
+                    <small style="color: #999; font-style: italic;">
+                        (Restart required)
+                    </small>
                 </div>
                 <div class="file-browser-toolbar">
                     <button id="refreshFiles" class="btn btn-secondary" onclick="loadFiles()">🔄 Refresh</button>
